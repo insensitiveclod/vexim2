@@ -29,6 +29,7 @@ Some sections may contain distribution or OS-specific notes. You'll find them af
 8. [Virtual Domains](#virtual-domains)
 9. [Mail storage and Delivery](#mail-storage-and-delivery)
 10. [POP3 and IMAP daemons (separate to this software)](#pop3-and-imap-daemons)
+11. [SIEVE support considerations](#sieve_considerations)
 
 ## Prerequisites:
 The following packages must be installed on your system, for Virtual Exim to work. If you don't have any of these packages already installed, please refer to the documentation provided with your operating system on how to install each package:
@@ -52,7 +53,12 @@ VExim might work with older (or newer) versions of these packages, but you may h
 
 **DEBIAN:** The following command line installs all the packages mentioned above (last four are optional), if you're going with MySQL setup:
 ```
-# apt-get install apache2 exim4-daemon-heavy mysql-server libapache2-mod-php php-mysql php-imap clamav-daemon clamav-freshclam spamassassin mailman
+# apt-get install apache2 exim4-daemon-heavy mysql-server libapache2-mod-php5 php5-mysql php5-imap clamav-daemon clamav-freshclam spamassassin mailman
+```
+
+The PostgreSQL setup would use something like this:
+```
+# apt-get install apache2 exim4-daemon-heavy postgresql libapache2-mod-php5 php5-pgsql php5-imap clamav-daemon clamav-freshclam spamassassin mailman
 ```
 
 ## System user:
@@ -229,3 +235,8 @@ There are many POP3 and IMAP daemons available. Some that we have found that wor
 Dovecot provides more features (server-side sieve filters) and is more performant on larger setups.
 
 **UPGRADING:** If you are upgrading, you will need to update your configs for your POP/IMAP daemons, as the database layout has changed. You should be able to follow the above instructions without problem.
+
+## Sieve Consideration
+TODO: Sieve only works well if you use LMTP. That likely means using IMAP-server as authentication-source, accepting mail and then throwing mail to Dovecot. Dovecot then needs to do SIEVE and handle the rest of the mail process from that point. Implications need to be checked out.
+Also: how to set up a SIEVE service, directly.
+
