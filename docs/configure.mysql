@@ -11,7 +11,11 @@
 # ASCII file. Other formats (PostScript, Texinfo, HTML, PDF) are available
 # from the Exim ftp sites. The manual is also online at the Exim web sites.
 
-
+# This configuration-file is based on an example configuration-file supplied 
+# by the 'Vexim2' software package: docs/configure.mysql 
+# This version incorporates MYSQL-support. A similar file exists for 
+# postgresql ('pgsql') support under 'docs/configure.pgsql'
+  
 # This file is divided into several parts, all but the first of which are
 # headed by a line starting with the word "begin". Only those parts that
 # are required need to be present. Blank lines, and lines starting with #
@@ -96,14 +100,10 @@ daemon_smtp_ports = 25 : 587
 # +local_domains, +relay_to_domains, and +relay_from_hosts, respectively. They
 # are all colon-separated lists:
 
-# If you are using MySQL, uncomment the following two lines:
+# Some useful lookups; MYSQL version 
 VIRTUAL_DOMAINS = SELECT DISTINCT domain FROM domains WHERE type = 'local' AND enabled = '1' AND domain = '${quote_mysql:$domain}'
 RELAY_DOMAINS = SELECT DISTINCT domain FROM domains WHERE type = 'relay'  AND domain = '${quote_mysql:$domain}'
 ALIAS_DOMAINS = SELECT DISTINCT alias FROM domainalias WHERE alias = '${quote_mysql:$domain}'
-
-# If you are using PGSQL, uncomment the following four lines:
-#VIRTUAL_DOMAINS = SELECT DISTINCT domain || ' : ' FROM domains WHERE type = 'local'
-#RELAY_DOMAINS = SELECT DISTINCT domain || ' : ' FROM domains WHERE type = 'relay'
 
 domainlist local_domains = @ : example.org : ${lookup mysql{VIRTUAL_DOMAINS}} : ${lookup mysql{ALIAS_DOMAINS}}
 domainlist relay_to_domains = ${lookup mysql{RELAY_DOMAINS}}
@@ -135,7 +135,6 @@ VEXIM_LOCALPART_SUFFIX = +*
 
 #Debian: hide mysql_servers = localhost::(/var/run/mysqld/mysqld.sock)/vexim/vexim/CHANGE
 #hide mysql_servers = localhost::(/tmp/mysql.sock)/vexim/vexim/CHANGE
-#hide pgsql_servers = localhost/vexim/vexim/CHANGE
 
 # Most straightforward access control requirements can be obtained by
 # appropriate settings of the above options. In more complicated situations, you
@@ -530,7 +529,7 @@ mailman_router:
 
 # The remaining routers handle addresses in the local domain(s).
 
-# The virtual_domains alias, queries your given mysql database
+# The virtual_domains alias, queries your given vexim database
 # and requests the home directory of the user's maildir, the
 # UID and the GID of the process to deliver under. You can be
 # clever, and set the UID and GID of a user, to that of a

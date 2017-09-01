@@ -1,0 +1,1213 @@
+######################################################################
+#                  Runtime configuration file for Exim               #
+######################################################################
+
+# This is a default configuration file which will operate correctly in
+# uncomplicated installations. Please see the manual for a complete list
+# of all the runtime configuration options that can be included in a
+# configuration file. There are many more than are mentioned here. The
+# manual is in the file doc/spec.txt in the Exim distribution as a plain
+# ASCII file. Other formats (PostScript, Texinfo, HTML, PDF) are available
+# from the Exim ftp sites. The manual is also online at the Exim web sites.
+
+# This configuration-file is based on an example configuration-file supplied
+# by the 'Vexim2' software package: docs/configure.pgsql
+# This version incorporates PostgreSQL-support. A similar file exists for 
+# MYSQL support under 'docs/configure.mysql
+
+
+# This file is divided into several parts, all but the first of which are
+# headed by a line starting with the word "begin". Only those parts that
+# are required need to be present. Blank lines, and lines starting with #
+# are ignored.
+
+
+########### IMPORTANT ########## IMPORTANT ########### IMPORTANT ###########
+#                                                                          #
+# Whenever you change Exim's configuration file, you *must* remember to    #
+# HUP the Exim daemon, because it will not pick up the new configuration   #
+# until you do. However, any other Exim processes that are started, for    #
+# example, a process started by an MUA in order to send a message, will    #
+# see the new configuration as soon as it is in place.                     #
+#                                                                          #
+# You do not need to HUP the daemon for changes in auxiliary files that    #
+# are referenced from this file. They are read every time they are used.   #
+#                                                                          #
+# It is usually a good idea to test a new configuration for syntactic      #
+# correctness before installing it (for example, by running the command    #
+# "exim -C /config/file.new -bV").                                         #
+#                                                                          #
+########### IMPORTANT ########## IMPORTANT ########### IMPORTANT ###########
+
+
+
+######################################################################
+#                    MAIN CONFIGURATION SETTINGS                     #
+######################################################################
+
+
+# Mailman-related options. Uncomment VEXIM_HAVE_MAILMAN and adjust the macros
+# below if want to use Mailman with this installation.
+# NOTE: we only have integration with Mailman 2 ready at the moment.
+
+#VEXIM_HAVE_MAILMAN = yes
+
+
+# Home dir for your Mailman installation - aka Mailman's prefix
+# directory.
+# On a Red Hat/Fedora system using RPM, use "/var/mailman"
+# On Debian using the deb package use "/var/lib/mailman"
+# This is normally the same as ~mailman
+
+MAILMAN_HOME=/usr/local/mailman
+
+
+# User and group for Mailman, should match your --with-mail-gid
+# switch to Mailman's configure script.
+# Value is normally "mailman"
+
+MAILMAN_USER=mailman
+MAILMAN_GROUP=mailman
+
+
+# The path of the Mailman mail wrapper script
+
+MAILMAN_WRAP=MAILMAN_HOME/mail/mailman
+
+
+# The path of the list config file (used as a required file when
+# verifying list addresses)
+
+MAILMAN_LISTCHK = MAILMAN_HOME/lists/${lc::$local_part}/config.pck
+
+
+# Specify your host's canonical name here. This should normally be the fully
+# qualified "official" name of your host. If this option is not set, the
+# uname() function is called to obtain the name. In many cases this does
+# the right thing and you need not set anything explicitly.
+
+# primary_hostname =
+
+# SMTP port 25 is activated by default. This port is blocked in some networks
+# and it is recommended to use the submission port 587 for authenticated
+# SMTP connections. SSL port 465 is deprecated, in order to use it, add it
+# to daemon_smtp_ports and uncomment the line below (tls_on_connect ports)
+daemon_smtp_ports = 25 : 587
+#tls_on_connect_ports = 465
+
+# The next three settings create two lists of domains and one list of hosts.
+# These lists are referred to later in this configuration using the syntax
+# +local_domains, +relay_to_domains, and +relay_from_hosts, respectively. They
+# are all colon-separated lists:
+
+# Some useful lookups; PostgreSQL version
+VIRTUAL_DOMAINS = SELECT DISTINCT domain || ' : ' FROM domains WHERE type = 'local' AND enabled = '1' AND domain = '${quote_pgsql:$domain}' 
+RELAY_DOMAINS = SELECT DISTINCT domain || ' : ' FROM domains WHERE type = 'relay'  AND domain = '${quote_pgsql:$domain}' 
+ALIAS_DOMAINS = SELECT DISTINCT alias || ' : ' FROM domainalias WHERE alias = '${quote_pgsql:$domain}' 
+
+
+domainlist local_domains = @ : example.org : ${lookup pgsql{VIRTUAL_DOMAINS}} : ${lookup pgsql{ALIAS_DOMAINS}}
+domainlist relay_to_domains = ${lookup pgsql{RELAY_DOMAINS}}
+hostlist   relay_from_hosts = localhost : @ : 192.168.0.0/24
+#trusted_users = www-data
+
+# If the local-part suffix is used, mails to user+whatevertext@example.org will be delivered to user@example.org
+# Comment this line if you want to disable it, instead of + you can use a different separator.
+VEXIM_LOCALPART_SUFFIX = +*
+
+# Exim will put the detailed spam report into an X-Spam-Report header by default.
+# This report is really huge by default, but its template can be tweaked to make
+# it look almost exactly like contents of the X-Spam-Status header, which
+# SpamAssassin adds when scanning messages externally, and which is a much more
+# compact version of the report. If you tweak your template this way, you may
+# as well want to change the header name here.
+#VEXIM_SPAM_REPORT_HEADER_NAME = X-Spam-Status
+
+# Reverse DNS checks can be efficient to fight spam. It checks if host name associated to the ip address matches
+# the sender_host_name (for properly configured mail servers this should be the case). However, there are some
+# downsides: DNS checks slow down the delivery process, DNS problems can result in rejected mails. You should
+# consider using a caching DNS server such as unbound on your host.
+# If the rule is activated, failed rDNS entries will only be logged to your exim-logfile (test mode). If you want
+# to reject mails directly, go to the vexim-acl-check-rcpt.conf and replace this line:
+#  warn message           = Warning - Reverse DNS lookup failed for host $sender_host_address.
+# by:
+#  deny message           = Warning - Reverse DNS lookup failed for host $sender_host_address.
+#CHECK_RCPT_REVERSE_DNS = yes
+
+#Debian: hide pgsql_servers = (/var/run/postgresql/.s.PGSQL.5432)/vexim/vexim/CHANGE
+#hide pgsql_servers = localhost/vexim/vexim/CHANGE
+
+# Most straightforward access control requirements can be obtained by
+# appropriate settings of the above options. In more complicated situations, you
+# may need to modify the Access Control List (ACL) which appears later in this
+# file.
+
+# The first setting specifies your local domains, for example:
+#
+#   domainlist local_domains = my.first.domain : my.second.domain
+#
+# You can use "@" to mean "the name of the local host", as in the default
+# setting above. This is the name that is specified by primary_hostname,
+# as specified above (or defaulted). If you do not want to do any local
+# deliveries, remove the "@" from the setting above. If you want to accept mail
+# addressed to your host's literal IP address, for example, mail addressed to
+# "user@[192.168.23.44]", you can add "@[]" as an item in the local domains
+# list. You also need to uncomment "allow_domain_literals" below. This is not
+# recommended for today's Internet.
+
+# The second setting specifies domains for which your host is an incoming relay.
+# If you are not doing any relaying, you should leave the list empty. However,
+# if your host is an MX backup or gateway of some kind for some domains, you
+# must set relay_to_domains to match those domains. For example:
+#
+# domainlist relay_to_domains = *.myco.com : my.friend.org
+#
+# This will allow any host to relay through your host to those domains.
+# See the section of the manual entitled "Control of relaying" for more
+# information.
+
+# The third setting specifies hosts that can use your host as an outgoing relay
+# to any other host on the Internet. Such a setting commonly refers to a
+# complete local network as well as the localhost. For example:
+#
+# hostlist relay_from_hosts = 127.0.0.1 : 192.168.0.0/16
+#
+# The "/16" is a bit mask (CIDR notation), not a number of hosts. Note that you
+# have to include 127.0.0.1 if you want to allow processes on your host to send
+# SMTP mail by using the loopback address. A number of MUAs use this method of
+# sending mail.
+
+
+# All three of these lists may contain many different kinds of item, including
+# wildcarded names, regular expressions, and file lookups. See the reference
+# manual for details. The lists above are used in the access control list for
+# incoming messages. The name of this ACL is defined here:
+
+acl_smtp_rcpt = acl_check_rcpt
+
+# You should not change that setting until you understand how ACLs work.
+
+# The following ACL entry is used if you want to do content scanning with the
+# exiscan-acl patch. When you uncomment this line, you must also review the
+# acl_check_content entry in the ACL section further below.
+
+acl_smtp_data = acl_check_content
+
+# This ACL added by Avleen Vig will drop all mail where the sender's helo
+# command contains your IP address. Please check the IP address at the top
+# for the configure file to make it your own.
+
+acl_smtp_helo = acl_check_helo
+
+# This ACL checks attached files to comply with certain rules (number of
+# attachments, file name length etc.). You can also block certain file
+# extensions.
+
+acl_smtp_mime = acl_check_mime
+
+# This configuration variable defines the virus scanner that is used with
+# the 'malware' ACL condition of the exiscan acl-patch. If you do not use
+# virus scanning, leave it commented. Please read:
+# http://www.exim.org/exim-html-current/doc/html/spec_html/ch-content_scanning_at_acl_time.html
+# for a list of supported scanners.
+
+av_scanner = clamd:/var/run/clamav/clamd
+
+# The following setting is only needed if you use the 'spam' ACL condition
+# of the exiscan-acl patch. It specifies on which host and port the SpamAssassin
+# "spamd" daemon is listening. If you do not use this condition, or you use
+# the default of "127.0.0.1 783", you can omit this option.
+
+spamd_address = 127.0.0.1 783
+
+# User who passes mails to spamassassin. He should have a home directory in order
+# to save configuration and scanning data (e.g. for Bayes filter). The default
+# vexim-user can be used for this purpose. If the user does not exist, SpamAssassin
+# will fall back to "nobody" and default settings, with all consequences.
+
+VEXIM_SA_USERNAME = vexim
+
+# Specify the domain you want to be added to all unqualified addresses
+# here. An unqualified address is one that does not contain an "@" character
+# followed by a domain. For example, "caesar@rome.example" is a fully qualified
+# address, but the string "caesar" (i.e. just a login name) is an unqualified
+# email address. Unqualified addresses are accepted only from local callers by
+# default. See the recipient_unqualified_hosts option if you want to permit
+# unqualified addresses from remote sources. If this option is not set, the
+# primary_hostname value is used for qualification.
+
+# qualify_domain =
+
+
+# If you want unqualified recipient addresses to be qualified with a different
+# domain to unqualified sender addresses, specify the recipient domain here.
+# If this option is not set, the qualify_domain value is used.
+
+# qualify_recipient =
+
+
+# The following line must be uncommented if you want Exim to recognize
+# addresses of the form "user@[10.11.12.13]" that is, with a "domain literal"
+# (an IP address) instead of a named domain. The RFCs still require this form,
+# but it makes little sense to permit mail to be sent to specific hosts by
+# their IP address in the modern Internet. This ancient format has been used
+# by those seeking to abuse hosts by using them for unwanted relaying. If you
+# really do want to support domain literals, uncomment the following line, and
+# see also the "domain_literal" router below.
+
+# allow_domain_literals
+
+
+# No deliveries will ever be run under the uids of these users (a colon-
+# separated list). An attempt to do so causes a panic error to be logged, and
+# the delivery to be deferred. This is a paranoic safety catch. Note that the
+# default setting means you cannot deliver mail addressed to root as if it
+# were a normal user. This isn't usually a problem, as most sites have an alias
+# for root that redirects such mail to a human administrator.
+# In Debian exim_user and exim_group are Debian-exim
+
+exim_user = mailnull
+exim_group = mail
+never_users = root
+
+.ifdef MAIN_KEEP_ENVIRONMENT
+keep_environment = MAIN_KEEP_ENVIRONMENT
+.else
+keep_environment =
+.endif
+.ifdef MAIN_ADD_ENVIRONMENT
+add_environment = MAIN_ADD_ENVIRONMENT
+.endif
+
+# The setting below causes Exim to do a reverse DNS lookup on all incoming
+# IP calls, in order to get the true host name. If you feel this is too
+# expensive, you can specify the networks for which a lookup is done, or
+# remove the setting entirely.
+
+host_lookup = *
+
+
+# The settings below, which are actually the same as the defaults in the
+# code, cause Exim to make RFC 1413 (ident) callbacks for all incoming SMTP
+# calls. You can limit the hosts to which these calls are made, and/or change
+# the timeout that is used. If you set the timeout to zero, all RFC 1413 calls
+# are disabled. RFC 1413 calls are cheap and can provide useful information
+# for tracing problem messages, but some hosts and firewalls have problems
+# with them. This can result in a timeout instead of an immediate refused
+# connection, leading to delays on starting up an SMTP session.
+
+rfc1413_hosts = *
+rfc1413_query_timeout = 0s
+
+
+# By default, Exim expects all envelope addresses to be fully qualified, that
+# is, they must contain both a local part and a domain. If you want to accept
+# unqualified addresses (just a local part) from certain hosts, you can specify
+# these hosts by setting one or both of
+#
+# sender_unqualified_hosts =
+# recipient_unqualified_hosts =
+#
+# to control sender and recipient addresses, respectively. When this is done,
+# unqualified addresses are qualified using the settings of qualify_domain
+# and/or qualify_recipient (see above).
+
+
+# If you want Exim to support the "percent hack" for certain domains,
+# uncomment the following line and provide a list of domains. The "percent
+# hack" is the feature by which mail addressed to x%y@z (where z is one of
+# the domains listed) is locally rerouted to x@y and sent on. If z is not one
+# of the "percent hack" domains, x%y is treated as an ordinary local part. This
+# hack is rarely needed nowadays; you should not enable it unless you are sure
+# that you really need it.
+#
+# percent_hack_domains =
+#
+# As well as setting this option you will also need to remove the test
+# for local parts containing % in the ACL definition below.
+
+
+# When Exim can neither deliver a message nor return it to sender, it "freezes"
+# the delivery error message (aka "bounce message"). There are also other
+# circumstances in which messages get frozen. They will stay on the queue for
+# ever unless one of the following options is set.
+
+# This option unfreezes frozen bounce messages after two days, tries
+# once more to deliver them, and ignores any delivery failures.
+
+ignore_bounce_errors_after = 2d
+
+# This option cancels (removes) frozen messages that are older than a week.
+
+timeout_frozen_after = 7d
+
+
+# We also want a little more detail in our logs, helps with debugging
+
+log_selector = +subject +tls_cipher +tls_peerdn
+
+# TLS
+tls_advertise_hosts = *
+tls_certificate = /etc/exim4/exim.crt
+tls_privatekey = /etc/exim4/exim.key
+tls_dhparam = /etc/exim4/dhparam.pem
+
+# A list of secure ciphers for GnuTLS which is used in Debian/Ubuntu
+tls_require_ciphers = ${if =={$received_port}{25}\
+    {NORMAL:%COMPAT:-ARCFOUR-128:-ARCFOUR-40:-MD5:-VERS-SSL3.0}\
+    {SECURE128:+AES-256-CBC:+CAMELLIA-256-CBC:-ARCFOUR-128:-ARCFOUR-40:-MD5:-VERS-SSL3.0}}
+
+# If OpenSSL is used (CentOS, FreeBSD), comment the previous block (tls_require_ciphers)
+# and uncomment the following line
+# openssl_options = +all +no_sslv2 +no_sslv3 +no_compression +cipher_server_preference
+
+
+######################################################################
+#                       ACL CONFIGURATION                            #
+#         Specifies access control lists for incoming SMTP mail      #
+######################################################################
+
+begin acl
+acl_check_helo:
+
+# Include Vexim specific helo ACLs
+  .include /usr/local/etc/exim/vexim-acl-check-helo.conf
+
+# This access control list is used for every RCPT command in an incoming
+# SMTP message. The tests are run in order until the address is either
+# accepted or denied.
+
+acl_check_rcpt:
+
+  # Accept if the source is local SMTP (i.e. not over TCP/IP). We do this by
+  # testing for an empty sending host field.
+
+  accept  hosts = :
+
+  # Deny if the local part contains @ or % or / or | or !. These are rarely
+  # found in genuine local parts, but are often tried by people looking to
+  # circumvent relaying restrictions.
+
+  # Also deny if the local part starts with a dot. Empty components aren't
+  # strictly legal in RFC 2822, but Exim allows them because this is common.
+  # However, actually starting with a dot may cause trouble if the local part
+  # is used as a file name (e.g. for a mailing list).
+
+  deny    local_parts   = ^.*[@%!/|] : ^\\.
+
+  # Accept mail to postmaster in any local domain, regardless of the source,
+  # and without verifying the sender.
+
+  accept  local_parts   = postmaster
+          domains       = +local_domains
+
+  # Accept if the message arrived over an authenticated connection, from
+  # any host. These messages are usually from MUAs that don't cope well
+  # with SMTP error responses, so recipient verification is omitted.
+
+  accept  authenticated = *
+
+  # Accept if the message comes from one of the hosts for which we are an
+  # outgoing relay. Recipient verification is omitted here, because in many
+  # cases the clients are MUAs. If you are actually relaying out from MTAs,
+  # you should probably add recipient verification here.
+
+  accept  hosts         = +relay_from_hosts
+
+  # Include Vexim specific rcpt ACLs
+
+  .include /usr/local/etc/exim/vexim-acl-check-rcpt.conf
+
+  # Accept if the address is in a local domain, but only if the recipient can
+  # be verified. Otherwise deny. The "endpass" line is the border between
+  # passing on to the next ACL statement (if tests above it fail) or denying
+  # access (if tests below it fail).
+
+  accept  domains       = +local_domains
+          endpass
+          verify        = recipient
+
+  # Accept if the address is in a domain for which we are relaying, but again,
+  # only if the recipient can be verified.
+
+  accept  domains       = +relay_to_domains
+          endpass
+          verify        = recipient
+
+  # If control reaches this point, the domain is neither in +local_domains
+  # nor in +relay_to_domains.
+
+  # Reaching the end of the ACL causes a "deny", but we might as well give
+  # an explicit message.
+
+  deny    message       = relay not permitted
+
+acl_check_mime:
+
+   #Include Vexim specific MIME rules:
+   .include /usr/local/etc/exim/vexim-acl-check-mime.conf
+
+  #accept content which is not forbidden
+  accept
+
+  # This access control list is used for content scanning (mail body).
+
+acl_check_content:
+
+  # Include Vexim specific rcpt ACLs
+  .include /usr/local/etc/exim/vexim-acl-check-content.conf
+
+  # finally accept all the rest
+  accept
+
+
+######################################################################
+#                      ROUTERS CONFIGURATION                         #
+#               Specifies how addresses are handled                  #
+######################################################################
+#     THE ORDER IN WHICH THE ROUTERS ARE DEFINED IS IMPORTANT!       #
+# An address is passed to each router in turn until it is accepted.  #
+######################################################################
+
+begin routers
+
+# Make sure that the name of the spam report header is set.
+.ifndef VEXIM_SPAM_REPORT_HEADER_NAME
+VEXIM_SPAM_REPORT_HEADER_NAME = X-Spam-Report
+.endif
+
+# This router routes to remote hosts over SMTP by explicit IP address,
+# when an email address is given in "domain literal" form, for example,
+# <user@[192.168.35.64]>. The RFCs require this facility. However, it is
+# little-known these days, and has been exploited by evil people seeking
+# to abuse SMTP relays. Consequently it is commented out in the default
+# configuration. If you uncomment this router, you also need to uncomment
+# allow_domain_literals above, so that Exim can recognize the syntax of
+# domain literal addresses.
+
+# domain_literal:
+#   driver = ipliteral
+#   domains = ! +local_domains
+#   transport = remote_smtp
+
+
+# This router routes addresses that are not in local domains by doing a DNS
+# lookup on the domain name. Any domain that resolves to 0.0.0.0 or to a
+# loopback interface address (127.0.0.0/8) is treated as if it had no DNS
+# entry. Note that 0.0.0.0 is the same as 0.0.0.0/32, which is commonly treated
+# as the local host inside the network stack. It is not 0.0.0.0/0, the default
+# route. If the DNS lookup fails, no further routers are tried because of
+# the no_more setting, and consequently the address is unrouteable.
+
+dnslookup:
+  driver = dnslookup
+  domains = ! +local_domains
+  transport = remote_smtp
+  ignore_target_hosts = 0.0.0.0 : 127.0.0.0/8
+  no_more
+
+
+# This router picks up all the addresses going to the Mailman lists. Initially
+# it selects only the domains that may have lists in them, then selects where
+# local_part matches a list name (ie you can see a list config file). The
+# suffixes pick up all the Mailman admin addresses
+
+.ifdef VEXIM_HAVE_MAILMAN
+mailman_router:
+  driver = accept
+  domains = +local_domains
+  require_files = MAILMAN_LISTCHK
+  local_part_suffix_optional
+  local_part_suffix = -admin     : \
+         -bounces   : -bounces+* : \
+         -confirm   : -confirm+* : \
+         -join      : -leave     : \
+         -owner     : -request   : \
+         -subscribe : -unsubscribe
+  transport = mailman_transport
+.endif
+
+
+# The remaining routers handle addresses in the local domain(s).
+
+# The virtual_domains alias, queries your given vexim database
+# and requests the home directory of the user's maildir, the
+# UID and the GID of the process to deliver under. You can be
+# clever, and set the UID and GID of a user, to that of a
+# local system user, so they can check their mail locally,
+# rather than having to over a network. Three different
+# transports are specified. virtual_delivery delivers if the
+# home directory is a given directory on a locally accessible
+# file system. address_reply is called if the home directory
+# returns an email address (making the rcpt address an alias).
+# finally, pipe_transport is used to pipe the mail to a
+# process.
+
+# This router caused me so much s*** it's untrue.
+# If your db lookup returns 'no data', then $spam_in_score is
+# greater than no data, and mail gets deleted.
+# Eventually got this working with Philip Hazel and Codiac's help.
+ditch_maxmsgsize:
+  driver = redirect
+  allow_fail
+  condition = ${if >{$message_size}{${lookup pgsql{select users.maxmsgsize from users,domains \
+  		where localpart = '${quote_pgsql:$local_part}' \
+		and domain = '${quote_pgsql:$domain}' \
+		and users.maxmsgsize > 0 \
+		and users.domain_id=domains.domain_id }{${value}K}fail}} {yes}{no}}
+  data = :fail:\n\Your message is too big.\n \
+	 	Your message was rejected because the user $local_part@$domain\n \
+		does not accept messages larger than \
+		${lookup pgsql{select users.maxmsgsize from users,domains \
+		where localpart = '${quote_pgsql:$local_part}' \
+		and domain = '${quote_pgsql:$domain}' \
+		and users.maxmsgsize > 0 \
+		and users.domain_id=domains.domain_id}{${value}K}fail} Kb.
+  .ifdef VEXIM_LOCALPART_SUFFIX
+    local_part_suffix = VEXIM_LOCALPART_SUFFIX
+    local_part_suffix_optional
+  .endif
+  retry_use_local_part
+
+# malware drop router
+ditch_malware:
+  driver = redirect
+  allow_fail
+  data = :blackhole:
+  condition = ${if and { {match {$h_X-ACL-Warn:}{.*malware.*}} \
+                         {eq {${lookup pgsql{select users.on_avscan from users,domains \
+		                where localpart = '${quote_pgsql:$local_part}' \
+		                and domain = '${quote_pgsql:$domain}' \
+		                and users.on_avscan = '1' \
+                                and domains.avscan = '1' \
+		                and users.domain_id=domains.domain_id}}}{1} }} {yes}{no} }
+  .ifdef VEXIM_LOCALPART_SUFFIX
+    local_part_suffix = VEXIM_LOCALPART_SUFFIX
+    local_part_suffix_optional
+  .endif
+
+# spam drop router
+ditch_spam_drop:
+    driver = redirect
+    allow_fail
+    data = :blackhole:
+    condition = ${if >={$spam_score_int}{${lookup pgsql{select users.sa_refuse * 10 from users,domains \
+        where localpart = '${quote_pgsql:$local_part}' \
+        and domain = '${quote_pgsql:$domain}' \
+        and users.on_spamassassin = '1' \
+        and domains.spamassassin = '1' \
+        and users.spam_drop = '1' \
+        and users.domain_id=domains.domain_id \
+        and users.sa_refuse > 0 }{$value}fail}} {yes}{no}}
+    .ifdef VEXIM_LOCALPART_SUFFIX
+      local_part_suffix = VEXIM_LOCALPART_SUFFIX
+      local_part_suffix_optional
+    .endif
+    retry_use_local_part
+
+ditch_spam:
+    driver = redirect
+    allow_fail
+    file_transport = virtual_ditch_spam_transport
+    data = ${lookup pgsql{select concat(smtp,'/.Spam') \
+        from users,domains \
+        where localpart = '${quote_pgsql:$local_part}' \
+        and domain = '${quote_pgsql:$domain}' \
+        and domains.enabled = '1' \
+        and users.enabled = '1' \
+        and users.domain_id = domains.domain_id}}
+    condition = ${if >={$spam_score_int}{${lookup pgsql{select \
+        users.sa_refuse * 10 from users,domains \
+        where localpart = '${quote_pgsql:$local_part}' \
+        and domain = '${quote_pgsql:$domain}' \
+        and users.on_spamassassin = '1' \
+        and domains.spamassassin = '1' \
+        and users.spam_drop = '0' \
+        and users.on_forward = '0' \
+        and users.type = 'local' \
+        and users.domain_id=domains.domain_id \
+        and users.sa_refuse > 0 }{$value}fail}} {yes}{no}}
+    headers_add = ${if and { \
+                     {match{$domain}{$original_domain}} \
+                     {match{$local_part}{$original_local_part}} \
+                     } {X-Spam-Flag: YES\nX-Spam-Score: $acl_m_spam_score\nVEXIM_SPAM_REPORT_HEADER_NAME: $acl_m_spam_report}{} }
+    .ifdef VEXIM_LOCALPART_SUFFIX
+      local_part_suffix = VEXIM_LOCALPART_SUFFIX
+      local_part_suffix_optional
+    .endif
+    retry_use_local_part
+
+ditch_hdrmailer:
+  driver = redirect
+  allow_fail
+  data = :blackhole:
+  condition = ${if eq {${lookup pgsql{select count(*) from blocklists,users,domains \
+  			where blocklists.blockhdr = 'x-mailer' \
+			and blocklists.blockval = '${quote_pgsql:$h_x-mailer:}' \
+			and users.localpart = '${quote_pgsql:$local_part}' \
+  			and domains.domain = '${quote_pgsql:$domain}' \
+			and domains.domain_id=blocklists.domain_id \
+			and users.user_id=blocklists.user_id}}}{1} {yes}{no}}
+  .ifdef VEXIM_LOCALPART_SUFFIX
+    local_part_suffix = VEXIM_LOCALPART_SUFFIX
+    local_part_suffix_optional
+  .endif
+  retry_use_local_part
+
+ditch_hdrto:
+  driver = redirect
+  allow_fail
+  data = :blackhole:
+  condition = ${if eq {${lookup pgsql{select count(*) from blocklists,users,domains \
+  			where blocklists.blockhdr = 'to' \
+			and blocklists.blockval = '${quote_pgsql:$h_to:}' \
+			and users.localpart = '${quote_pgsql:$local_part}' \
+  			and domains.domain = '${quote_pgsql:$domain}' \
+			and domains.domain_id=blocklists.domain_id \
+			and users.user_id=blocklists.user_id}}}{1} {yes}{no}}
+  .ifdef VEXIM_LOCALPART_SUFFIX
+    local_part_suffix = VEXIM_LOCALPART_SUFFIX
+    local_part_suffix_optional
+  .endif
+  retry_use_local_part
+
+ditch_hdrfrom:
+  driver = redirect
+  allow_fail
+  data = :blackhole:
+  condition = ${if eq {${lookup pgsql{select count(*) from blocklists,users,domains \
+  			where blocklists.blockhdr = 'from' \
+			and blocklists.blockval = '${quote_pgsql:$h_from:}' \
+			and users.localpart = '${quote_pgsql:$local_part}' \
+  			and domains.domain = '${quote_pgsql:$domain}' \
+			and domains.domain_id=blocklists.domain_id \
+			and users.user_id=blocklists.user_id}}}{1} {yes}{no}}
+  .ifdef VEXIM_LOCALPART_SUFFIX
+    local_part_suffix = VEXIM_LOCALPART_SUFFIX
+    local_part_suffix_optional
+  .endif
+  retry_use_local_part
+
+ditch_hdrsubject:
+  driver = redirect
+  allow_fail
+  data = :blackhole:
+  condition = ${if eq {${lookup pgsql{select count(*) from blocklists,users,domains \
+  			where blocklists.blockhdr = 'subject' \
+			and blocklists.blockval = '${quote_pgsql:$h_subject:}' \
+			and users.localpart = '${quote_pgsql:$local_part}' \
+  			and domains.domain = '${quote_pgsql:$domain}' \
+			and domains.domain_id=blocklists.domain_id \
+			and users.user_id=blocklists.user_id}}}{1} {yes}{no}}
+  .ifdef VEXIM_LOCALPART_SUFFIX
+    local_part_suffix = VEXIM_LOCALPART_SUFFIX
+    local_part_suffix_optional
+  .endif
+  retry_use_local_part
+
+virtual_vacation:
+  driver = accept
+  condition = ${if and { {!match {$h_precedence:}{(?i)junk|bulk|list}} \
+                         {eq {${lookup pgsql{select users.on_vacation from users,domains \
+		                where localpart = '${quote_pgsql:$local_part}' \
+		                and domain = '${quote_pgsql:$domain}' \
+		                and users.on_vacation = '1' \
+		                and users.domain_id=domains.domain_id}}}{1} }} {yes}{no} }
+  no_verify
+  no_expn
+  unseen
+  transport = virtual_vacation_delivery
+
+virtual_forward:
+  driver = redirect
+  check_ancestor
+  unseen = ${if eq {${lookup pgsql{select unseen from users,domains \
+		where localpart = '${quote_pgsql:$local_part}' \
+		and domain = '${quote_pgsql:$domain}' \
+		and users.on_forward = '1' \
+		and users.domain_id=domains.domain_id}}}{1} {yes}{no}}
+  data = ${lookup pgsql{select forward from users,domains \
+	where localpart='${quote_pgsql:$local_part}' \
+	and domain='${quote_pgsql:$domain}' \
+	and users.domain_id=domains.domain_id \
+	and on_forward = '1'}}
+  # We explicitly make this condition NOT forward mailing list mail!
+  condition = ${if and { {!match {$h_precedence:}{(?i)junk}} \
+                         {eq {${lookup pgsql{select users.on_forward from users,domains \
+		                where localpart = '${quote_pgsql:$local_part}' \
+		                and domain = '${quote_pgsql:$domain}' \
+		                and users.on_forward = '1' \
+		                and users.domain_id=domains.domain_id}}}{1} }} {yes}{no} }
+
+virtual_domains:
+  driver = redirect
+  domains = +local_domains
+  address_data = ${lookup pgsql{\
+        select smtp, users.sa_tag*10 AS sa_tag, users.on_spamassassin AND domains.spamassassin AS on_spamassassin, \
+        users.uid AS uid, users.gid AS gid, quota \
+        from users,domains \
+        where localpart = '${quote_pgsql:$local_part}' \
+                and domain = '${quote_pgsql:$domain}' \
+                and domains.enabled = '1' \
+                and users.enabled = '1' \
+                and users.domain_id = domains.domain_id}{$value}fail}
+  allow_fail
+  data = ${extract{smtp}{$address_data}}
+  headers_add = ${if and { \
+                    {match{$domain}{$original_domain}} \
+                    {match{$local_part}{$original_local_part}} \
+                    {>={$spam_score_int}{${extract{sa_tag}{$address_data}}}} \
+                    {eq{1}{${extract{on_spamassassin}{$address_data}}}} \
+                    } {X-Spam-Flag: YES\nX-Spam-Score: $acl_m_spam_score\nVEXIM_SPAM_REPORT_HEADER_NAME: $acl_m_spam_report}{} }
+  # using local_part_suffixes enables possibility to use user-"something" localparts
+  # which could cause you trouble if you're creating email-adresses with dashes in between.
+  .ifdef VEXIM_LOCALPART_SUFFIX
+    local_part_suffix = VEXIM_LOCALPART_SUFFIX
+    local_part_suffix_optional
+  .endif
+  retry_use_local_part
+  file_transport = virtual_delivery
+  reply_transport = address_reply
+  pipe_transport = address_pipe
+
+# A group is a list of users
+#
+# if a group is flaged public
+# then anyone on the internet can write to it
+# else only members can write to it
+#
+# If not public non member sender will receive a "550 Unknown user" message
+virtual_dom_groups:
+  driver = redirect
+  allow_fail
+  senders = ${if eq{Y}{${lookup pgsql{select g.is_public \
+                                      from groups g, domains d \
+                                      where d.enabled = '1' and d.domain = '${quote_pgsql:$domain}' and \
+                                            d.domain_id = g.domain_id and g.enabled = '1' and \
+                                            g.name = '${quote_pgsql:$local_part}'}}} \
+                 {$sender_address} \
+                 {${lookup pgsql{select concat_ws('@', u.localpart, d.domain) \
+                                 from domains d, groups g, group_contents c, users u \
+                                 where d.enabled = '1' and d.domain = '${quote_pgsql:$domain}' and \
+                                       d.domain_id = g.domain_id and g.name = '${quote_pgsql:$local_part}' and \
+                                       g.enabled = '1' and \
+                                       g.is_public = 'N' and c.member_id = u.user_id and \
+                                       d.domain_id = u.domain_id and u.enabled = '1' \
+				       and u.username = '${quote_pgsql:$sender_address}' }}}}
+  data = ${lookup pgsql{ \
+            select concat_ws('@', u.localpart, d.domain) \
+            from domains d, groups g, group_contents c, users u \
+            where d.enabled     = '1'           and \
+                  d.domain      = '${quote_pgsql:$domain}'   and \
+                  d.domain_id   = g.domain_id   and \
+                  g.enabled     = '1'           and \
+                  g.id          = c.group_id    and \
+                  c.member_id   = u.user_id     and \
+                  d.domain_id   = u.domain_id   and \
+                  u.enabled     = '1'           and \
+                  g.name        = '${quote_pgsql:$local_part}'} }
+  .ifdef VEXIM_LOCALPART_SUFFIX
+    local_part_suffix = VEXIM_LOCALPART_SUFFIX
+    local_part_suffix_optional
+  .endif
+  retry_use_local_part
+  reply_transport = address_reply
+  pipe_transport = address_pipe
+
+virtual_domains_catchall:
+  driver = redirect
+  allow_fail
+  data = ${lookup pgsql{select smtp from users,domains where localpart = '*' \
+  		and domain = '${quote_pgsql:$domain}' \
+		and users.domain_id = domains.domain_id}}
+  retry_use_local_part
+  file_transport = virtual_delivery
+  reply_transport = address_reply
+  pipe_transport = address_pipe_catchall
+
+virtual_domain_alias:
+  driver = redirect
+  allow_fail
+  data = ${lookup pgsql{select concat('${quote_pgsql:$local_part}@', domain) \
+  		from domains,domainalias where domainalias.alias = '${quote_pgsql:$domain}' \
+		and domainalias.domain_id = domains.domain_id}}
+  retry_use_local_part
+
+
+# This router handles aliasing using a linearly searched alias file with the
+# name /etc/aliases. When this configuration is installed automatically,
+# the name gets inserted into this file from whatever is set in Exim's
+# build-time configuration. The default path is the traditional /etc/aliases.
+# If you install this configuration by hand, you need to specify the correct
+# path in the "data" setting below.
+#
+##### NB  You must ensure that the alias file exists. It used to be the case
+##### NB  that every Unix had that file, because it was the Sendmail default.
+##### NB  These days, there are systems that don't have it. Your aliases
+##### NB  file should at least contain an alias for "postmaster".
+#
+# If any of your aliases expand to pipes or files, you will need to set
+# up a user and a group for these deliveries to run under. You can do
+# this by uncommenting the "user" option below (changing the user name
+# as appropriate) and adding a "group" option if necessary. Alternatively, you
+# can specify "user" on the transports that are used. Note that the transports
+# listed below are the same as are used for .forward files; you might want
+# to set up different ones for pipe and file deliveries from aliases.
+
+system_aliases:
+  driver = redirect
+  allow_fail
+  allow_defer
+  data = ${lookup{$local_part}lsearch{/etc/aliases}}
+
+
+# This router handles forwarding using traditional .forward files in users'
+# home directories. If you want it also to allow mail filtering when a forward
+# file starts with the string "# Exim filter", uncomment the "allow_filter"
+# option.
+
+# The no_verify setting means that this router is skipped when Exim is
+# verifying addresses. Similarly, no_expn means that this router is skipped if
+# Exim is processing an EXPN command.
+
+# The check_ancestor option means that if the forward file generates an
+# address that is an ancestor of the current one, the current one gets
+# passed on instead. This covers the case where A is aliased to B and B
+# has a .forward file pointing to A.
+
+# The three transports specified at the end are those that are used when
+# forwarding generates a direct delivery to a file, or to a pipe, or sets
+# up an auto-reply, respectively.
+
+userforward:
+  driver = redirect
+  check_local_user
+  file = $home/.forward
+  no_verify
+  no_expn
+  check_ancestor
+# allow_filter
+  file_transport = address_file
+  pipe_transport = address_pipe_local
+  reply_transport = address_reply
+  condition = ${if exists{$home/.forward} {yes} {no} }
+  group = mail
+
+
+# This router matches local user mailboxes. If the router fails, the error
+# message is "Unknown user".
+
+localuser:
+  driver = accept
+  check_local_user
+  transport = local_delivery
+  cannot_route_message = Unknown user
+
+
+
+######################################################################
+#                      TRANSPORTS CONFIGURATION                      #
+######################################################################
+#                       ORDER DOES NOT MATTER                        #
+#     Only one appropriate transport is called for each delivery.    #
+######################################################################
+
+# A transport is used only when referenced from a router that successfully
+# handles an address.
+
+begin transports
+
+
+# This transport is used for delivering messages over SMTP connections.
+
+remote_smtp:
+  driver = smtp
+
+# This transport is used for local delivery to user mailboxes in traditional
+# BSD mailbox format. By default it will be run under the uid and gid of the
+# local user, and requires the sticky bit to be set on the /var/mail directory.
+# Some systems use the alternative approach of running mail deliveries under a
+# particular group instead of using the sticky bit. The commented options below
+# show how this can be done.
+
+local_delivery:
+  driver = appendfile
+  file = /var/mail/$local_part
+  delivery_date_add
+  envelope_to_add
+  return_path_add
+  group = mail
+  user = $local_part
+  mode = 0660
+  no_mode_fail_narrower
+
+virtual_delivery:
+  driver = appendfile
+  envelope_to_add
+  return_path_add
+  mode = 0600
+  maildir_format = true
+  create_directory = true
+  directory = ${extract{smtp}{$address_data}}
+  user = ${extract{uid}{$address_data}}
+  group = ${extract{gid}{$address_data}}
+  quota = ${extract{quota}{$address_data}{${value}M}}
+  quota_is_inclusive = false
+  #quota_size_regex = ,S=(\d+):
+  quota_warn_threshold = 75%
+  maildir_use_size_file = false
+  quota_warn_message = "To: $local_part@$domain\n\
+  			Subject: Mailbox quota warning\n\n\
+			This message was automatically generated by the mail delivery software.\n\n\
+			You are now using over 75% of your allocated mail storage quota.\n\n\
+			If your mailbox fills completely, further incoming messages will be automatically\n\
+			returned to their senders.\n\n\
+			Please take note of this and remove unwanted mail from your mailbox.\n"
+
+virtual_vacation_delivery:
+  driver   = autoreply
+  from     = "${local_part}@${domain}"
+  to       = ${sender_address}
+  subject  = "Autoreply from ${local_part}@${domain}"
+  headers  = "Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: quoted-printable"
+  text     = ${lookup pgsql{select vacation from users,domains \
+		where domain='${quote_pgsql:$domain}' \
+		and localpart='${quote_pgsql:$local_part}' \
+		and users.domain_id=domains.domain_id}}
+
+virtual_ditch_spam_transport:
+  driver = appendfile
+  envelope_to_add
+  return_path_add
+  mode = 0600
+  maildir_format = true
+  create_directory = true
+  user = ${lookup pgsql{select users.uid  from users,domains \
+                where localpart = '${quote_pgsql:$local_part}' \
+                and domain = '${quote_pgsql:$domain}' \
+                and users.domain_id = domains.domain_id}}
+  group = ${lookup pgsql{select users.gid from users,domains \
+                where localpart = '${quote_pgsql:$local_part}' \
+                and domain = '${quote_pgsql:$domain}' \
+                and users.domain_id = domains.domain_id}}
+  maildir_use_size_file = false
+
+
+# This transport delivers messages to Mailman lists.
+# The if def:local_part_suffix section selects whether the suffix is used
+# as the mailman command, or whether there is no suffix and so post is
+# passed as a command.
+# The sg phrase strips the VERP information (if any) from the suffix,
+
+.ifdef VEXIM_HAVE_MAILMAN
+mailman_transport:
+  driver = pipe
+  command = MAILMAN_WRAP \
+            '${if def:local_part_suffix \
+                  {${sg{$local_part_suffix}{-(\\w+)(\\+.*)?}{\$1}}} \
+                  {post}}' \
+            $local_part
+  current_directory = MAILMAN_HOME
+  home_directory = MAILMAN_HOME
+  user = MAILMAN_USER
+  group = MAILMAN_GROUP
+.endif
+
+
+# This transport is used for handling pipe deliveries generated by alias or
+# .forward files. If the pipe generates any standard output, it is returned
+# to the sender of the message as a delivery error. Set return_fail_output
+# instead of return_output if you want this to happen only when the pipe fails
+# to complete normally. You can set different transports for aliases and
+# forwards if you want to - see the references to address_pipe in the routers
+# section above.
+
+address_pipe:
+  driver = pipe
+  return_output
+  user = ${lookup pgsql{select users.uid from users,domains where localpart = '${quote_pgsql:$local_part}' and domain = '${quote_pgsql:$domain}' and users.domain_id = domains.domain_id}}
+  group = ${lookup pgsql{select users.gid from users,domains where localpart = '${quote_pgsql:$local_part}' and domain = '${quote_pgsql:$domain}' and users.domain_id = domains.domain_id}}
+
+address_pipe_catchall:
+  driver = pipe
+  return_output
+  user = ${lookup pgsql{select users.uid from users,domains where localpart = '*' and domain = '${quote_pgsql:$domain}' and users.domain_id = domains.domain_id}}
+  group = ${lookup pgsql{select users.gid from users,domains where localpart = '*' and domain = '${quote_pgsql:$domain}' and users.domain_id = domains.domain_id}}
+
+address_pipe_local:
+  driver = pipe
+  return_output
+
+
+# This transport is used for handling deliveries directly to files that are
+# generated by aliasing or forwarding.
+
+address_file:
+  driver = appendfile
+  delivery_date_add
+  envelope_to_add
+  return_path_add
+
+
+# This transport is used for handling autoreplies generated by the filtering
+# option of the userforward router.
+
+address_reply:
+  driver = autoreply
+
+
+
+######################################################################
+#                      RETRY CONFIGURATION                           #
+######################################################################
+
+begin retry
+
+# This single retry rule applies to all domains and all errors. It specifies
+# retries every 15 minutes for 2 hours, then increasing retry intervals,
+# starting at 1 hour and increasing each time by a factor of 1.5, up to 16
+# hours, then retries every 6 hours until 4 days have passed since the first
+# failed delivery.
+
+# Domain               Error       Retries
+# ------               -----       -------
+
+*                      *           F,2h,15m; G,16h,1h,1.5; F,14d,6h
+
+
+
+######################################################################
+#                      REWRITE CONFIGURATION                         #
+######################################################################
+
+# There are no rewriting specifications in this default configuration file.
+
+begin rewrite
+
+
+
+######################################################################
+#                   AUTHENTICATION CONFIGURATION                     #
+######################################################################
+
+# There are no authenticator specifications in this default configuration file.
+
+begin authenticators
+
+plain_virtual_exim:
+        driver = plaintext
+        public_name = PLAIN
+        server_condition = ${if crypteq{$auth3}{${lookup pgsql{ \
+                           SELECT crypt FROM users \
+                           WHERE username = '${quote_pgsql:$auth2}' \
+                             AND enabled = 1 \
+                           }}}{1}{0}}
+        server_set_id = $auth2
+        server_advertise_condition = ${if or{\
+          {!eq{$tls_cipher}{}}\
+          {match_ip {$sender_host_address}{@[]}}\
+          }\
+          {*}{}}
+
+login_virtual_exim:
+        driver = plaintext
+        public_name = LOGIN
+        server_prompts = "Username:: : Password::"
+        server_condition = ${if crypteq{$auth2}{${lookup pgsql{ \
+                           SELECT crypt FROM users \
+                           WHERE username = '${quote_pgsql:$auth1}' \
+                             AND enabled = 1 \
+                           }}}{1}{0}}
+        server_set_id = $auth1
+        server_advertise_condition = ${if or{\
+          {!eq{$tls_cipher}{}}\
+          {match_ip {$sender_host_address}{@[]}}\
+          }\
+          {*}{}}
+
+
+# You can use the authenticator of your IMAP server (Courier or Dovecot) to authenticate
+# users in Exim. To do that, comment out the lines above after begin authenticators,
+# and uncomment either the Courier or Dovecot section below.
+
+# Authenticate against Courier authdaemon
+# Based on: https://github.com/Exim/exim/wiki/Q0730
+# Possible pitfall: access rights on /var/run/courier/authdaemon/socket.
+#
+# .ifndef AUTH_AUTHDAEMON_SOCKET
+# AUTH_AUTHDAEMON_SOCKET = /var/run/courier/authdaemon/socket
+# .endif
+#
+# plain_courier_authdaemon:
+#   driver = plaintext
+#   public_name = PLAIN
+#   server_condition = \
+#     ${extract {ADDRESS} \
+#               {${readsocket{AUTH_AUTHDAEMON_SOCKET} \
+#               {AUTH ${strlen:exim\nlogin\n$auth2\n$auth3\n}\nexim\nlogin\n$auth2\n$auth3\n} }} \
+#               {yes} \
+#               fail}
+#   server_set_id = $auth2
+#   server_advertise_condition = ${if or{\
+#     {!eq{$tls_cipher}{}}\
+#     {match_ip {$sender_host_address}{@[]}}\
+#     }\
+#     {*}{}}
+#
+# login_courier_authdaemon:
+#   driver = plaintext
+#   public_name = LOGIN
+#   server_prompts = Username:: : Password::
+#   server_condition = \
+#     ${extract {ADDRESS} \
+#               {${readsocket{AUTH_AUTHDAEMON_SOCKET} \
+#               {AUTH ${strlen:exim\nlogin\n$auth1\n$auth2\n}\nexim\nlogin\n$auth1\n$auth2\n} }} \
+#               {yes} \
+#               fail}
+#   server_set_id = $auth1
+#   server_advertise_condition = ${if or{\
+#     {!eq{$tls_cipher}{}}\
+#     {match_ip {$sender_host_address}{@[]}}\
+#     }\
+#     {*}{}}
+
+# Authenticate against Dovecot SASL
+# Based on: http://wiki2.dovecot.org/HowTo/EximAndDovecotSASL
+#
+# login_dovecot_sasl:
+#   driver = dovecot
+#   public_name = LOGIN
+#   server_socket = /var/run/dovecot/auth-client
+#   server_set_id = $auth1
+#   server_advertise_condition = ${if or{\
+#     {!eq{$tls_cipher}{}}\
+#     {match_ip {$sender_host_address}{@[]}}\
+#     }\
+#     {*}{}}
+#
+# plain_dovecot_sasl:
+#   driver = dovecot
+#   public_name = PLAIN
+#   server_socket = /var/run/dovecot/auth-client
+#   server_set_id = $auth1
+#   server_advertise_condition = ${if or{\
+#     {!eq{$tls_cipher}{}}\
+#     {match_ip {$sender_host_address}{@[]}}\
+#     }\
+#     {*}{}}
+
+
+######################################################################
+#                   CONFIGURATION FOR local_scan()                   #
+######################################################################
+
+# If you have built Exim to include a local_scan() function that contains
+# tables for private options, you can define those options here. Remember to
+# uncomment the "begin" line. It is commented by default because it provokes
+# an error with Exim binaries that are not built with LOCAL_SCAN_HAS_OPTIONS
+# set in the Local/Makefile.
+
+# begin local_scan
+
+
+# End of Exim configuration file

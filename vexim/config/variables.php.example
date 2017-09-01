@@ -3,13 +3,19 @@
   include_once dirname(__FILE__) . "/i18n.php";
 
   $sqlserver = "localhost";
-  $sqltype = "mysql";
+  $sqltype = "mysql";	# 'mysql' and 'pgsql' are currently supported
   $sqldb = "vexim";
   $sqluser = "vexim";
   $sqlpass = "CHANGE";
 
   $dsn = "$sqltype:host=$sqlserver;dbname=$sqldb";
-  $dboptions = array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES UTF8');
+
+  if ( $sqltype == "mysql" ) {
+    $dboptions = array(PDO::PGSQL_ATTR_INIT_COMMAND => 'SET NAMES UTF8');
+  }
+  if ( $sqltype == "pgsql" ) {
+    $dboptions = array();
+  }
 
   try {
     $dbh = new PDO($dsn, $sqluser, $sqlpass, $dboptions);
