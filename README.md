@@ -3,7 +3,7 @@
 
 Thanks for picking the Virtual Exim package, for your virtual mail hosting needs! :-)
 
-This document provides a basic guide on how to get Virtual Exim working on your system. In this guide, I assume that you have *a little* knowledge of both MySQL and Exim.
+This document provides a basic guide on how to get Virtual Exim working on your system. In this guide, I assume that you have *a little* knowledge of both MySQL/PostgreSQL and Exim.
 
 Before we go into any details, I'd like to thanks Philip Hazel and the Exim developers for a fine product. I would also like to thanks the postmasters at various domains for letting me play havoc with their mail while I set this up :-) Finally, a special note of thanks to Dan Bernstein for his Qmail MTA. Dan, thank you for educating me how mail delivery really shouldn't be done, on the Internet.
 
@@ -111,6 +111,8 @@ If you are upgrading your installation, we have prepared MySQL migration scripts
 ```
 # mysql -u root -D YOUR_DATABASE_NAME -p < vexim2/setup/migrations/SCRIPT_FILENAME.sql
 ```
+
+At current, there are no PostgreSQL equivalents of the mysql upgrade-scripts. These might be included in a next release.
 
 ## Files and Apache:
 In this distribution is a directory called 'vexim'. You have two options:
@@ -240,6 +242,8 @@ There are many POP3 and IMAP daemons available. Some that we have found that wor
 * **Dovecot:** docs/clients/dovecot.txt
 
 Dovecot provides more features (server-side sieve filters) and is more performant on larger setups.
+
+TODO: Provide versions of these files for PostgreSQL
 
 **UPGRADING:** If you are upgrading, you will need to update your configs for your POP/IMAP daemons, as the database layout has changed. You should be able to follow the above instructions without problem.
 
