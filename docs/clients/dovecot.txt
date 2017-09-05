@@ -1,48 +1,117 @@
 Configuring Dovecot to work with Virtual Exim
 
-  This short manual is based on my experience setting up Dovecot 1.2.15
-  to work with Vexim under Debian 6.0 (Squeeze). Any additions or
-  improvements to this document are very welcome.
+  This short manual is based on my experience setting up Dovecot 2.2.13
+  to work with Vexim under Debian 8.0 (Jessie) with either Mysql or PostgreSQL.
+  Any additions or improvements to this document are very welcome.
 
   Dovecot is an open source IMAP and POP3 email server for Linux/UNIX-like
   systems, written with security primarily in mind.
 
   Setting Dovecot up to work with Vexim is indeed rather trivial:
 
-1. Edit /etc/dovecot/dovecot.conf. It is documented rather extensively,
-   at least in Debian, so I won't go through everything. The things I had to
+  Like with Exim, debian has opted to use a conf.d-system for dovecot as well.
+  This allows separating/splitting the configuration into several files made
+  available under /etc/dovecot/conf.d/.
+
+  The 'proper' config-file /etc/dovecot/dovecot.conf contains a number of general
+  settings that can be tweaked but can/should mostly be left alone.
+
+  Below is a guide that will help you both get Dovecot working as well as 
+  integrating the Vexim2 related parts into it.
+
+1. To install dovecot ensure that you install the required 'core' component
+   , the required database (mysql/pgsql) driver and whichever service-component
+   that you would like to provide as a way to access your mail.
+   For example, dovecot with PostgreSQL support and IMAP would require something
+   like this:
+
+   # apt-get install dovecot-core dovecot-pgsql dovecot-imapd
+
+2. Edit /etc/dovecot/conf.d/10-mail.conf 
    change for Vexim auth to work were the following:
-   * 'first_valid_uid' must be low enough for vexim user to be able to log in.
+   * 'first_valid_uid' (in conf.d/10-mail.conf) must be low enough for vexim 
+     user to be able to log in.
      For example:
 
       first_valid_uid = 100
 
-   * comment out the 'passdb pam' block, and uncomment the 'passdb sql' block
-     instead. My `passdb sql' looks like this:
 
-      passdb sql {
-        # Path for SQL configuration file
-        args = /etc/dovecot/dovecot-sql.conf
-      }
+   Edit /etc/dovecot/conf.d/10-auth.conf:
 
-   * I have also uncommented the 'userdb prefetch' block:
+     - Disable system/PAM authentication
+     - Enable authentication through SQL queries
 
-      userdb prefetch {
-      }
+     This can be done by going to the bottom of the file and ensuring that
+     the right options are (un)commented out. Like so:
 
-2. Edit /etc/dovecot/dovecot-sql.conf. Again, it is well documeted, so I
-   won't go into detail. With comments stripped out, my dovecot-sql.conf
-   looks like following:
+     #!include auth-system.conf.ext
+     !include auth-sql.conf.ext
+
+
+     This will make dovecot load the auth-sql.conf.ext handler, which will  look 
+     at /etc/dovecot/dovecot-sql.conf.ext to see what SQL-statements to use.
+     
+3. Edit /etc/dovecot/dovecot-sql.conf.ext 
+  Add something like this to the bottom of the file for PostgreSQL:
+
+   driver = pgsql
+   connect = host=localhost dbname=vexim user=vexim password=CHANGE
+   default_pass_scheme = CRYPT
+   password_query = \
+	SELECT username AS user, crypt AS password, pop AS userdb_home, \
+         CONCAT('maildir:',smtp) AS userdb_mail, uid AS userdb_uid, gid AS userdb_gid \
+         FROM users WHERE username = '%u'
+   user_query = \
+         SELECT CONCAT('maildir:',smtp) AS mail, pop AS home, uid, gid \
+         FROM users WHERE username = '%u'
+
+
+
+  And for MySQL, only the following entries should be different:
+
 
       driver = mysql
       connect = host=/var/run/mysqld/mysqld.sock dbname=vexim user=vexim password=CHANGE
-      default_pass_scheme = CRYPT #PLAIN
-      password_query = \
-        SELECT `username` AS `user`, `crypt` AS `password`, \
-          `pop` AS `userdb_home`, `uid` AS `userdb_uid`, `gid` AS `userdb_gid` \
-        FROM `users` WHERE `username` = '%u'
+
 
    Dovecot expects the select to return a set of columns with particular
-   names, hence usage of the 'AS' keyword above.
+   names, hence usage of the 'AS' keyword above. Vexim uses maildir-format for delivery
+   of mail by default; the above syntax enforces that dovecot will know that whatever mail
+   directory gets returned will be interpreted as being of 'maildir:' format.
 
-3. Just restart Dovecot, and it should work.
+4. Restarting Dovecot at this point will result in a setup that *in principle* should work, 
+   but only when testing it from localhost. The Dovecot settings in Debian enforce that SSL/TLS
+   should be enabled if you want to use PLAIN password authentication as a safety-feature
+   to prevent passwords from going CLEARTEXT across the internet to your imap-server.
+
+   To get SSL working, simply 'acquire' a matching set of SSL-CERT and the SSL-KEY file and 
+   point to their locations in the /etc/dovecot/conf.d/10-ssl.conf
+
+   In /usr/share/doc/dovecot-core/README.Debian.gz it is described how you can use
+   /usr/share/dovecot/mkcert.sh to generate these files for you.
+
+   A (better) alternative is to use a proper, world-recognized SSL-certificate that you can
+   either buy from an SSL-certificate broker or use a service like LetsEncrypt to 
+   acquire them. The same certificate can be used to provide Exim and the HTTP-server running
+   the Exim PHP-scripts with a proper SSL/TLS connection.
+
+   Configuring a setup such as this is, however beyond the scope of this manual. Do note that
+   Dovecot requires a restart whenever a new certificate-set is put in the right location. So
+   when using letsencrypt, ensure that Dovecot gets re-started each time a certificate has
+   been updated.
+
+   Uncommenting and editing the following lines is all that is required to get a (basic) 
+   SSL/TLS setup to work:
+
+   ssl_cert = </etc/dovecot/dovecot.pem
+   ssl_key = </etc/dovecot/private/dovecot.pem
+
+   If you didnt use the mkcert.sh tool or use some kind of LetsEncrypt client to handle
+   certificate-creation for you, please ensure that you set the right permissions on the 
+   files as failing to do so will cause all manner of safety-checks to kick in and disallow
+   using the provided files as valid crypto-material for SSL/TLS.
+
+
+5.
+   At this point, you should be able to restart Dovecot and test logging in via IMAP to check
+   the contents of a mailbox.
