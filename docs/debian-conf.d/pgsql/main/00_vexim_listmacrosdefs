@@ -6,9 +6,9 @@
 hide pgsql_servers = localhost/vexim/vexim/CHANGE
 
 # domains
-VEXIM_VIRTUAL_DOMAINS = SELECT DISTINCT CONCAT(domain, ' : ') FROM domains WHERE type = 'local' AND enabled = '1' AND domain = '${quote_pgsql:$domain}'
-VEXIM_RELAY_DOMAINS = SELECT DISTINCT CONCAT(domain, ' : ') FROM domains WHERE type = 'relay'  AND domain = '${quote_pgsql:$domain}'
-VEXIM_ALIAS_DOMAINS = SELECT DISTINCT CONCAT(alias, ' : ') FROM domainalias WHERE alias = '${quote_pgsql:$domain}'
+VEXIM_VIRTUAL_DOMAINS = SELECT DISTINCT domain || ' : ' FROM domains WHERE type = 'local' AND enabled = '1' AND domain = '${quote_pgsql:$domain}'
+VEXIM_RELAY_DOMAINS = SELECT DISTINCT domain || ' : ' FROM domains WHERE type = 'relay'  AND domain = '${quote_pgsql:$domain}'
+VEXIM_ALIAS_DOMAINS = SELECT DISTINCT alias || ' : ' FROM domainalias WHERE alias = '${quote_pgsql:$domain}'
 
 # domains and relay networks
 MAIN_LOCAL_DOMAINS = MAIN_LOCAL_DOMAINS : ${lookup pgsql{VEXIM_VIRTUAL_DOMAINS}} : ${lookup pgsql{VEXIM_ALIAS_DOMAINS}}

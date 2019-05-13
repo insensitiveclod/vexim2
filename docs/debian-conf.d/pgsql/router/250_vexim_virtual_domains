@@ -42,7 +42,7 @@ virtual_domains:
   driver = redirect
   domains = +local_domains
   address_data = ${lookup pgsql{\
-        select smtp, users.sa_tag*10 AS sa_tag, ((users.on_spamassassin)::int:bool AND (domains.spamassassin)::int::bool)::int AS on_spamassassin, \
+        select smtp, users.sa_tag*10 AS sa_tag, ((users.on_spamassassin)::int::bool AND (domains.spamassassin)::int::bool)::int AS on_spamassassin, \
         users.uid AS uid, users.gid AS gid, quota \
         from users,domains \
         where localpart = '${quote_pgsql:$local_part}' \

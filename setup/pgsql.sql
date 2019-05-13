@@ -6,12 +6,12 @@
 -- Note that if changing the user name, you should also update ALTER TABLE
 -- queries that set table owner.
 
-/*
+
     CREATE USER vexim WITH PASSWORD 'CHANGE' NOCREATEDB NOCREATEUSER;
     CREATE DATABASE vexim WITH ENCODING 'UTF8' OWNER vexim;
     \c vexim;
     CREATE EXTENSION IF NOT EXISTS pgcrypto;
--- */
+
 
 -- When adding the siteadmin user, we will hash that user's password using
 -- the hashing scheme specified below. Note that MD5 hashes are not secure
