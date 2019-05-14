@@ -1,0 +1,157 @@
+Configuring Dovecot to provide LMTP to be able to use SIEVE
+
+   This short manual is an addendum to the 'dovecot.txt' guide that
+   will detail how to enable 'Local Mail Transport Protocol', aka LMTP
+   on a typical Dovecot-server. It has been tested under Debian 8.0 (Jessie)
+   and 9.0 (Stretch) using Dovecot 2.2.27
+
+   The main reason you'd want to have LMTP support is because it enables
+   (v)exim to deliver mail 'through' Dovecot and use it's Sieve-capabilities
+   to do server-side filtering of incoming mail.
+
+   It is beyond the scope of this guide to explain all that can be done using
+   sieve, or how to write filters. Please see SIEVE chapter of the "README.md"
+   file for links to places that explain this in more detail.
+
+1. In the 'dovecot.txt' file it was already explained just which parts are
+   required for basic operation of dovecot as an IMAP server with SQL-lookups.
+   Due to the modular nature of dovecot, extra functionality is provided
+   through installing extra components and completing configuration for them.
+
+   The required components for lmtp and sieve are:
+    - dovecot-lmtpd    		# The LMTP protocol handler
+    - dovecot-sieve    		# Enables running mail through SIEVE filters
+    - dovecot-managesieved 	# Runs a daemon on port 4190 for altering filters
+
+   To install these components under debian, use:
+
+   # apt-get install dovecot-sieve dovecot-lmtpd dovecot-managesieved
+
+
+
+2. A few pieces of extra configuration are required at this point to get things
+   working. Note that the settings below correspond to what's required to get
+   LMTP/SIEVE working with the vexim-lmtp variant as provided in the
+   'debian.conf.d/mysql-lmtp' and 'debian.conf.d/pgsql-lmtp' variants
+   shipped with vexim2. 
+
+ 2.1 In file '/etc/dovecot/conf.d/15-lda.conf', alter the section at the bottom:
+
+   protocol lda {
+	mail_plugins = $mail_plugins sieve
+   }
+
+ 2.2 In file '/etc/dovecot/conf.d/20-lmtp.conf', alter the section at the bottom:
+
+  protocol lmtp {
+    mail_plugins = $mail_plugins sieve
+    #info_log_path = /var/log/dovecot-lmtp.log
+  }	
+
+  You can uncomment the 'info_log_path' to enable logging lmtp deliveries but
+  you'll also need to uncomment the 'executeable = lmtp -L' line in the
+  '10-master.conf' file as described below.
+
+ 2.3 In file '/etc/dovecot/conf.d/90-sieve.conf', there is just one alterations
+  suggested, but they depend on just what sieve extensions you might want
+  enabled too. The 'editheader' extension is too essential to not 
+
+  sieve_extensions = + editheader
+
+ 2.4 In file '/etc/dovecot/conf.d/20-managesieve.conf', we need to only uncomment
+  the top line in the file:
+
+  protocols = $protocols sieve
+
+ 2.5 In file '/etc/dovecot/conf.d/10-mail.conf', there is a minor edit
+  required to properly get dovecot+sieve to understand that a '/' is a
+  valid character in a mailbox-path, and that it should be seen as a 
+  separator; to support 'subfolders' (aka directories of mailfolders.
+  like 'private/bank' 'private/family','work/human_resources','work/it_dept'
+  etc). Without this, any mail-filters that try to put mail into a mailbox
+  inside a folder will seem not to work. In debug-logs (see end of this text)
+  you will find 'Invalid mailbox name: Name must not have '/' characters.'
+
+  In the section 'namespace inbox {', set the separator correctly:
+
+  separator = /
+
+
+
+  
+
+ 2.6 Finally, in tile '/etc/dovecot/conf.d/10-master.conf', we get to tie
+  everything together.
+
+  Most likely, there is already a section for lmtp that enables the
+  LMTP-service over a unix-style socket (instead of TCPIP), which is
+  the manner in which we connect to it in (v)exim. However
+  I will list a complete section here for reference, also because you
+  will require an extra statement in case you chose to log lmtp-traffic
+  in '20-lmtp.conf'. Uncomment the 'executable' line, if so. You can
+  safely ignore all the #'ed lines and not copy them over, as long
+  as you DO include the } at the bottom, of course:
+
+  service lmtp {
+    #executable = lmtp -L
+    unix_listener lmtp {
+      #mode = 0666
+    }
+
+    # Create inet listener only if you can't use the above UNIX socket
+    #inet_listener lmtp {
+      # Avoid making LMTP visible for the entire internet
+      #address =
+      #port =
+    #}
+  }
+ 
+  That's it for config-file alterations! Phew!
+
+3 You can now restart Dovecot and it should not complain about anything
+  If so, please review if you made the changes above correctly and/or
+  follow up any warnings given by doing some online search-work on
+  the errors given.
+
+4 To start using sieve, please use a sieve-capable mail-client
+  (like Thunderbird or even Roundcube), and set up a simple filter
+  to test lmtp/sieve functionality working properly.
+  By using a mail-client to set the filter, you will also be
+  testing wether the 'dovecot-managesieved' is working properly.
+
+  A simple sieve-file with one filter that'll work with the settings and
+  options enabled above could look something like this:
+
+  require ["fileinto", "reject", "regex", "variables","mailbox"];
+
+  if header :contains ["subject"] ["veximtest"]
+  {
+    fileinto :create "testdirectory/testfolder";
+    stop;
+  }
+
+
+  This filter would check for mails with a subject that contains the
+  word 'veximtest' in the subject and stuff it into the mailbox
+  'testdirectory/testfolder', which it would create if it doesnt exist
+  already.
+  Note that a lot of mail-clients do not automatically 'see' or 'notice'
+  newly created folders that were not created by themselves. In
+  thunderbird, you will need to 'subscribe' to the folder to see it in
+  the side-panel, first. You can unset the 'Show Only Subscribed Folders'
+  checkbox in the 'account settings->server settings->'advanced' button
+
+
+5 Debugging can be done through checking the /var/log/dovecot-sieve.log
+  file's contents. Next to that, the sieve-server also creates per-user
+  log entries and refers to them in the /var/log/dovecot-sieve.log file.
+
+  In the case of our vexim settings, these would be found in:
+
+  /var/vmail/<domainname>/<username>/.dovecot.sieve.log
+
+ Note the '.' at the beginning of that filename; it's a hidden file by
+ design.
+
+
+

@@ -1,7 +1,7 @@
 Configuring Dovecot to work with Virtual Exim
 
   This short manual is based on my experience setting up Dovecot 2.2.13
-  to work with Vexim under Debian 8.0 (Jessie) with either Mysql or PostgreSQL.
+  to work with Vexim under Debian 9.0 (Jessie) with either Mysql or PostgreSQL.
   Any additions or improvements to this document are very welcome.
 
   Dovecot is an open source IMAP and POP3 email server for Linux/UNIX-like
@@ -26,6 +26,8 @@ Configuring Dovecot to work with Virtual Exim
    like this:
 
    # apt-get install dovecot-core dovecot-pgsql dovecot-imapd
+
+   If you are using mysql, simply replace the 'dovecot-pgsql' with 'dovecot-mysql'
 
 2. Edit /etc/dovecot/conf.d/10-mail.conf 
    change for Vexim auth to work were the following:
@@ -114,4 +116,8 @@ Configuring Dovecot to work with Virtual Exim
 
 5.
    At this point, you should be able to restart Dovecot and test logging in via IMAP to check
-   the contents of a mailbox.
+   the contents of a mailbox. Please see dovecot-lmtp if you want to read about how to enable
+   lmtp-support on the imap-server so that you can use 'SIEVE' to filter messages on the side
+   of the mail-server instead of in your mail-client; a great boon.
+
+

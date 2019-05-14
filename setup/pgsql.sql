@@ -7,11 +7,14 @@
 -- queries that set table owner.
 
 
+-- NOTICE ! FROM POSTGRES 9.6, the 'NOCREATEUSER' OPTION IS DEPRECATED AND
+-- YOU SHOULD REMOVE IT FROM THE DATABASE CREATION LINES, BELOW
+/*
     CREATE USER vexim WITH PASSWORD 'CHANGE' NOCREATEDB NOCREATEUSER;
     CREATE DATABASE vexim WITH ENCODING 'UTF8' OWNER vexim;
     \c vexim;
     CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
+*/
 
 -- When adding the siteadmin user, we will hash that user's password using
 -- the hashing scheme specified below. Note that MD5 hashes are not secure
@@ -20,7 +23,6 @@
 -- trigger a re-hash. Alternatively, if you are using *BSD or Solaris, you
 -- may change the setting below to 'bf' to use a much more secure bcrypt
 -- scheme right from the start:
-
 SELECT SET_CONFIG('vexim.site_admin_pw_scheme', 'md5', false);
 
 -- No further changes should be made to this script.
