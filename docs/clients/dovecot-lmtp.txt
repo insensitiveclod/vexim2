@@ -27,8 +27,6 @@ Configuring Dovecot to provide LMTP to be able to use SIEVE
 
    # apt-get install dovecot-sieve dovecot-lmtpd dovecot-managesieved
 
-
-
 2. A few pieces of extra configuration are required at this point to get things
    working. Note that the settings below correspond to what's required to get
    LMTP/SIEVE working with the vexim-lmtp variant as provided in the
@@ -75,10 +73,6 @@ Configuring Dovecot to provide LMTP to be able to use SIEVE
   In the section 'namespace inbox {', set the separator correctly:
 
   separator = /
-
-
-
-  
 
  2.6 Finally, in tile '/etc/dovecot/conf.d/10-master.conf', we get to tie
   everything together.
@@ -152,6 +146,3 @@ Configuring Dovecot to provide LMTP to be able to use SIEVE
 
  Note the '.' at the beginning of that filename; it's a hidden file by
  design.
-
-
-
