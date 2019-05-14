@@ -289,8 +289,9 @@ Getting NGINX to be your web-frontend instead of Apache is not too difficult a t
 
 On debian, you will require PHP-fpm (php7.0-fpm works fine), and a php module for your database of choice. The example below here assumes postgres, but you can use 'php7.0-mysql' instead. Of course, we also require nginx if not installed already:
 
+```
  # apt-get install php7.0-fpm php7.0-pgsql nginx-full
-
+```
 After the basics are installed, you can set up an http-server for a domain in the usual way and add some configuration to get php to work and a /vexim directory to serve you the vexim configuration website. 
 
 Let's assume we want to make the site work as follows:
