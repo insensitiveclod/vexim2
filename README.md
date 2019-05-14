@@ -300,7 +300,7 @@ Let's assume we want to make the site work as follows:
 
 
 /etc/nginx/sites-available/mailserver.maildomain.example.conf:
-
+```
 server {
   listen *:80;
 
@@ -322,7 +322,7 @@ server {
     deny all;
   }
 }
-
+```
 Make sure to put the contents of the 'vexim' directory in the vexim2 distribution into the directory referred to in the configuration file: '/var/www/mailserver.maildomain.example/htdocs/vexim'
 
 At this point, you should be able to restart the nginx webserver and have it all working. Note that HTTPS/SSL support is *GREATLY* encouraged. Since there are multiple approaches to attaining an SSL-cert, it is not attempted to cover this aspect here. Using letsencrypt certificates for SMTP/IMAPS/MangeSieve and HTTP(s) is greatly encouraged, of course.
