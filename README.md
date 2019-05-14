@@ -36,7 +36,7 @@ Some sections may contain distribution or OS-specific notes. You'll find them af
 The following packages must be installed on your system, for Virtual Exim to work. If you don't have any of these packages already installed, please refer to the documentation provided with your operating system on how to install each package:
 * Exim v4 with MySQL or PostgreSQL support (tested on v4.1x/4.2x/4.7x)
 * MySQL (tested on v5.1.x) or PostgreSQL
-* Apache or other HTTP server (Tested on Apache v2.2.x)
+* Apache or other HTTP server (Tested on Apache v2.2.x) (NGINX now also works. See chapter 12)
 * PHP (tested on v5.3.x and v7.x) with at least the following extensions:
   * PDO
   * pdo_mysql or pdo_pgsql
@@ -52,7 +52,7 @@ The following packages provide optional functionality:
 
 VExim might work with older (or newer) versions of these packages, but you may have to perform some adaptation work to achieve that. In any case, you are welcome to file bugs and/or provide patches on GitHub.
 
-**DEBIAN:** The following command line installs all the packages mentioned above (last four are optional), if you're going with MySQL setup:
+**DEBIAN with APACHE:** The following command line installs all the packages mentioned above (last four are optional), if you're going with MySQL setup:
 ```
 # apt-get install apache2 exim4-daemon-heavy mysql-server libapache2-mod-php5 php5-mysql php5-imap clamav-daemon clamav-freshclam spamassassin mailman
 ```
@@ -61,6 +61,8 @@ The PostgreSQL setup would use something like this:
 ```
 # apt-get install apache2 exim4-daemon-heavy postgresql postgresql-contrib libapache2-mod-php5 php5-pgsql php5-imap clamav-daemon clamav-freshclam spamassassin mailman 
 ```
+
+For NGINX, see chapter 12 to see what you should do differently.
 
 ## System user:
 You should create a new user account to whom the virtual mailboxes will belong. Since you do not want anyone to be able to login using that account, you should also disable logging in for that user. Here are the command lines to do that. This manual assumes you want to have your virtual mailboxes in /var/vmail. If you want them elsewhere, adjust the commands. After the user and group are created, find their uid and gid using the last command and memorize these values:
