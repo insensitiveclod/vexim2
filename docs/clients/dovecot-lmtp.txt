@@ -54,7 +54,7 @@ Configuring Dovecot to provide LMTP to be able to use SIEVE
   suggested, but they depend on just what sieve extensions you might want
   enabled too. The 'editheader' extension is too essential to not 
 
-  sieve_extensions = + editheader
+  sieve_extensions = +editheader
 
  2.4 In file '/etc/dovecot/conf.d/20-managesieve.conf', we need to only uncomment
   the top line in the file:
