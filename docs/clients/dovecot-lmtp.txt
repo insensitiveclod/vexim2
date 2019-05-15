@@ -101,13 +101,25 @@ Configuring Dovecot to provide LMTP to be able to use SIEVE
   }
  
   That's it for config-file alterations! Phew!
+  
+3 ***** IMPORTANT ****
+  Dovecot's LMTP delivery program gets called by the user 'Debian-exim' and thus the permissions of the /var/vmail
+  directory no longer are sufficient. A suggestion is to change the group of the /var/vmail dir to 'Debian-exim' and
+  set g+rw on it.
+  
+  chown vexim:Debian-exim /var/vmail
+  chmod g+rw /var/vmail
 
-3 You can now restart Dovecot and it should not complain about anything
+
+  Failure to do this will result in weird errors, with the mail being accepted by exim, but no local files stored
+  for pop/imap accounts.
+
+4 You can now restart Dovecot and it should not complain about anything
   If so, please review if you made the changes above correctly and/or
   follow up any warnings given by doing some online search-work on
   the errors given.
 
-4 To start using sieve, please use a sieve-capable mail-client
+5 To start using sieve, please use a sieve-capable mail-client
   (like Thunderbird or even Roundcube), and set up a simple filter
   to test lmtp/sieve functionality working properly.
   By using a mail-client to set the filter, you will also be
@@ -136,7 +148,7 @@ Configuring Dovecot to provide LMTP to be able to use SIEVE
   checkbox in the 'account settings->server settings->'advanced' button
 
 
-5 Debugging can be done through checking the /var/log/dovecot-sieve.log
+6 Debugging can be done through checking the /var/log/dovecot-sieve.log
   file's contents. Next to that, the sieve-server also creates per-user
   log entries and refers to them in the /var/log/dovecot-sieve.log file.
 
