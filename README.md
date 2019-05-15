@@ -275,6 +275,7 @@ If you are NOT using debian or have NOT split the configuration into small files
 
 For Dovecot, there is the text-file  'docs/clients/dovecot-lmtp.txt' that details all the EXTRA configuration required to get LMTP/SIEVE support configured on Dovecot. Note that the 'docs/clients/dovecot.txt' instructions should be followed (and tested) before proceding to enabling LMTP.
 
+A VERY important note about getting LMTP/Sieve to work is that the permissions of the /var/vmail dir should be altered so that the group is 'Debian-exim', and that it can write to the dir , or else it will fail to be able to create new directories for mail-domains and/or new users; and thus drop mail.
 
 As for documentation, you can find some great info and/or tools in the following places:
 
